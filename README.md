@@ -7,6 +7,6 @@ For now, please only try learnSourceModel.py for algorithm implementation.
 Current problem: CNN_feedforward.py, there may be some problems in CNN settings.
 
 text embedding CNN example:
-https://chriskhanhtran.github.io/posts/cnn-sentence-classification/
-https://medium.com/@martinpella/how-to-use-pre-trained-word-embeddings-in-pytorch-71ca59249f76
+https://chriskhanhtran.github.io/posts/cnn-sentence-classification/.
+https://medium.com/@martinpella/how-to-use-pre-trained-word-embeddings-in-pytorch-71ca59249f76.
 

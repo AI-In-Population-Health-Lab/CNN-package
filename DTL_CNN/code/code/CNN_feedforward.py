@@ -42,10 +42,9 @@ class CNN_feedforward(nn.Module):
                  num_filters=[100,100,100],
                  num_classes=2,
                  dropout=0.5):
-        super().__init__()
+        super(CNN_feedforward, self).__init__()
         # Embedding layer
         if pretrained_embedding is not None:
-            print('check')
             self.cuis_size, self.embed_dim = pretrained_embedding.shape
             self.embedding = nn.Embedding.from_pretrained(pretrained_embedding,
                                                           freeze=freeze_embedding)
@@ -103,8 +102,8 @@ class CNN_feedforward(nn.Module):
         """
 
         # Get embeddings from `input_ids`. Output shape: (b, max_len, embed_dim)
-        x_embed = self.embedding(input_ids).float()
-        print(x_embed.dtype())
+        x_embed = self.embedding(input_ids.long()).float()
+        
 
         # Permute `x_embed` to match input shape requirement of `nn.Conv1d`.
         # Output shape: (b, embed_dim, max_len)

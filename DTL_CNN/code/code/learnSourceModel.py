@@ -51,14 +51,14 @@ def main(args: argparse.Namespace):
     # create source model only by using source train and source validate data
     # input -> FC -> relu -> FC -> relu -> output num_classes
     # no softmax because that's handled by cross entropy loss already
-    label_key = "diagnosis"
+    label_key = "I"
     validation_split = 0.125
 
     source_train_path = source_train_fold_loc + args.source_train_path + ".csv"
     target_train_path = target_train_fold_loc + args.target_train_path + ".csv"
-    target_test_path = target_test_fold_loc + "findings_final_0814_seed-1494714102_size10000.csv"
+    target_test_path = target_test_fold_loc + "findings_final_0814_seed-1494714102_size10000_I.csv"
     learned_source_model_path = learned_model_fold_loc  + args.source_train_path  + "_" + str(args.seed) + ".pth"
-    source_train_dataset, source_val_dataset, target_test_dataset, _,weights_matrix = prepare_datasets_returnSourceVal(
+    source_train_dataset, source_val_dataset, target_test_dataset, _,cui2idx,embedding_matrix = prepare_datasets_returnSourceVal(
         source_train_path,
         target_train_path,
         target_test_path,
@@ -75,6 +75,7 @@ def main(args: argparse.Namespace):
     train_source_iter = ForeverDataIterator(train_source_loader)
 
     backbone_in_dim = source_train_dataset.features.shape[1]
+
     print("source train input dimension:", backbone_in_dim)
     print("source val input dimension:", source_val_dataset.features.shape[1])
     print("target test input dimension:", target_test_dataset.features.shape[1])
@@ -103,7 +104,8 @@ def main(args: argparse.Namespace):
 
     
 
-    classifier = CNN_feedforward(pretrained_embedding=weights_matrix).to(device)
+    classifier = CNN_feedforward(pretrained_embedding=embedding_matrix, cuis_size=len(cui2idx) )
+    classifier.to(device)
 
 
     print(classifier)
@@ -139,11 +141,11 @@ def main(args: argparse.Namespace):
         print(param_tensor, "\t", classifier.state_dict()[param_tensor].size())
 
     # evaluate on test set
-    test_acc1,total_y_true,total_y_pred1,total_y_pred2,total_y_pred3,total_y_pred4,total_y_diagnosis,total_y_correct = getAUROC(test_loader, classifier, args)
+    test_acc1,total_y_true,total_y_pred1,total_y_pred2,total_y_diagnosis,total_y_correct = getAUROC(test_loader, classifier, args)
     print("test_acc1 = {:3.1f}".format(test_acc1))
     csvFilename = prob_fold_loc + "source_model_prob_" + args.source_train_path + "_" + str(args.seed) + ".csv"
-    avg_auc,auc_I,auc_M,auc_P,auc_R = printListToFile(csvFilename,total_y_true,total_y_pred1,total_y_pred2,total_y_pred3,total_y_pred4,total_y_diagnosis,total_y_correct)
-    return test_acc1, avg_auc,auc_I,auc_M,auc_P,auc_R
+    avg_auc,auc_I,auc_M= printListToFile(csvFilename,total_y_true,total_y_pred1,total_y_pred2, total_y_diagnosis,total_y_correct)
+    return test_acc1, avg_auc,auc_I,auc_M
 
 
 def train(train_source_iter: ForeverDataIterator, model: nn.Module, optimizer: SGD, lr_scheduler: StepwiseLR, epoch: int, args: argparse.Namespace):
@@ -237,45 +239,43 @@ def generateIntegarArray(size):
     return list
 
 
-def printListToFile(fileName, total_y_true, total_y_pred1, total_y_pred2, total_y_pred3, total_y_pred4,
+def printListToFile(fileName, total_y_true, total_y_pred1, total_y_pred2, 
                     total_y_diagnosis, total_y_correct):
     a = numpy.asarray(total_y_true).astype(int)
     b1 = numpy.asarray(total_y_pred1)
     b2 = numpy.asarray(total_y_pred2)
-    b3 = numpy.asarray(total_y_pred3)
-    b4 = numpy.asarray(total_y_pred4)
+
     c = numpy.asarray(total_y_diagnosis).astype(int)
     d = numpy.asarray(total_y_correct).astype(int)
-    df = pd.DataFrame({"y_true": a, "p0": b1, "p1": b2, "p2": b3, "p3": b4, "prediction": c, "correct": d})
+    df = pd.DataFrame({"y_true": a, "p0": b1, "p1": b2, "prediction": c, "correct": d})
     df.to_csv(fileName, index=False)
 
     # calculate auc
-    # I:0; M:1; P:2; R:3
+    # positive: 1, negative:0
     df['I_category'] = 'F'
     df.loc[df['y_true'] == 0, "I_category"] = "T"
     df['M_category'] = 'F'
     df.loc[df['y_true'] == 1, "M_category"] = "T"
-    df['P_category'] = 'F'
-    df.loc[df['y_true'] == 2, "P_category"] = "T"
-    df['R_category'] = 'F'
-    df.loc[df['y_true'] == 3, "R_category"] = "T"
+    # df['P_category'] = 'F'
+    # df.loc[df['y_true'] == 2, "P_category"] = "T"
+    # df['R_category'] = 'F'
+    # df.loc[df['y_true'] == 3, "R_category"] = "T"
     fpr, tpr, thresholds = metrics.roc_curve(df['I_category'], df['p0'], pos_label='T')
     auc_I = metrics.auc(fpr, tpr)
     fpr, tpr, thresholds = metrics.roc_curve(df['M_category'], df['p1'], pos_label='T')
     auc_M = metrics.auc(fpr, tpr)
-    fpr, tpr, thresholds = metrics.roc_curve(df['P_category'], df['p2'], pos_label='T')
-    auc_P = metrics.auc(fpr, tpr)
-    fpr, tpr, thresholds = metrics.roc_curve(df['R_category'], df['p3'], pos_label='T')
-    auc_R = metrics.auc(fpr, tpr)
-    avg_auc = (auc_I + auc_M + auc_P + auc_R) / 4
-    return avg_auc, auc_I, auc_M, auc_P, auc_R
+    # fpr, tpr, thresholds = metrics.roc_curve(df['P_category'], df['p2'], pos_label='T')
+    # auc_P = metrics.auc(fpr, tpr)
+    # fpr, tpr, thresholds = metrics.roc_curve(df['R_category'], df['p3'], pos_label='T')
+    # auc_R = metrics.auc(fpr, tpr)
+    avg_auc = (auc_I + auc_M) / 2
+    return avg_auc, auc_I, auc_M
 
 
 def getAUROC(val_loader: DataLoader, model: nn.Module, args: argparse.Namespace):
     total_y_pred1 = numpy.array([[]])
     total_y_pred2 = numpy.array([[]])
-    total_y_pred3 = numpy.array([[]])
-    total_y_pred4 = numpy.array([[]])
+
     total_y_diagnosis = numpy.array([[]])
     total_y_correct = numpy.array([[]])
     total_y_true = numpy.array([])
@@ -316,8 +316,7 @@ def getAUROC(val_loader: DataLoader, model: nn.Module, args: argparse.Namespace)
             probAll = torch.nn.functional.softmax(output, dim=1).cpu().numpy()
             total_y_pred1 = numpy.append(total_y_pred1, probAll[:, 0])
             total_y_pred2 = numpy.append(total_y_pred2, probAll[:, 1])
-            total_y_pred3 = numpy.append(total_y_pred3, probAll[:, 2])
-            total_y_pred4 = numpy.append(total_y_pred4, probAll[:, 3])
+
             total_y_true = numpy.append(total_y_true, target.cpu().numpy())
             _, diagnosis = output.topk(1, 1, True, True)
             diagnosis = diagnosis.t()
@@ -328,12 +327,12 @@ def getAUROC(val_loader: DataLoader, model: nn.Module, args: argparse.Namespace)
         print(' * Acc@1 {top1.avg:.3f}'
               .format(top1=top1))
 
-    return top1.avg, total_y_true, total_y_pred1, total_y_pred2, total_y_pred3, total_y_pred4, total_y_diagnosis, total_y_correct
+    return top1.avg, total_y_true, total_y_pred1, total_y_pred2, total_y_diagnosis, total_y_correct
 
 
 if __name__ == '__main__':
 
-    source_train_paths = ['findings_final_0814_seed1591536269_size10000']
+    source_train_paths = ['findings_final_0814_seed1591536269_size10000_I']
     
     seed_paths = [14942]
 
@@ -367,15 +366,15 @@ if __name__ == '__main__':
     print(args)
 
  
-    args.target_train_path = 'findings_final_0814_seed2132231585_size10000'
+    args.target_train_path = 'findings_final_0814_seed2132231585_size10000_I'
 
-    d_kl_dict = {}
-    d_kl_dict['findings_final_0814'] = 0
-    d_kl_dict['findings_final_0814-portion1ita06round14'] = 1
-    d_kl_dict['findings_final_0814-portion1ita13round20'] = 5
-    d_kl_dict['findings_final_0814-portion1ita16round14'] = 10
-    d_kl_dict['findings_final_0814-portion1ita27round9'] = 20
-    d_kl_dict['findings_final_0814-portion1ita29round18'] = 30
+    # d_kl_dict = {}
+    # d_kl_dict['findings_final_0814'] = 0
+    # d_kl_dict['findings_final_0814-portion1ita06round14'] = 1
+    # d_kl_dict['findings_final_0814-portion1ita13round20'] = 5
+    # d_kl_dict['findings_final_0814-portion1ita16round14'] = 10
+    # d_kl_dict['findings_final_0814-portion1ita27round9'] = 20
+    # d_kl_dict['findings_final_0814-portion1ita29round18'] = 30
  
 
     source_train_paths = args.source
@@ -384,17 +383,17 @@ if __name__ == '__main__':
 
 
     with open(results_fold_loc + "/sourceModel_acc_auc.txt", "w") as f:
-        f.write(f"d_kl,source_train_path,seed_index,seed,test_acc1,avg_auc,auc_I,auc_M,auc_P,auc_R\n")
+        f.write(f"d_kl,source_train_path,seed_index,seed,test_acc1,avg_auc,auc_I,auc_M\n")
         for i in range(len(source_train_paths)):
             args.source_train_path = source_train_paths[i]
             print(args.source_train_path)
             d_kl = -1
-            for key in d_kl_dict.keys():
-                if key in args.source_train_path:
-                    d_kl = d_kl_dict[key]
+            # for key in d_kl_dict.keys():
+            #     if key in args.source_train_path:
+            #         d_kl = d_kl_dict[key]
             for seed_index in range(len(seed_paths)):
                 args.seed = seed_paths[seed_index]
-                test_acc1, avg_auc,auc_I,auc_M,auc_P,auc_R = main(args)
+                test_acc1, avg_auc,auc_I,auc_M = main(args)
                 f.write(
-                    f"{d_kl},{args.source_train_path},{seed_index},{args.seed},{test_acc1},{avg_auc},{auc_I},{auc_M},{auc_P},{auc_R}\n")
+                    f"{d_kl},{args.source_train_path},{seed_index},{args.seed},{test_acc1},{avg_auc},{auc_I},{auc_M}\n")
 

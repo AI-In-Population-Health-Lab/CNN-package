@@ -16,7 +16,7 @@ def all_features(source_train, target_train, target_test):
     return all_feature_cols.to_list()
 
 def emb_dic(source_train, target_train, target_test):
-    embedding_df=pd.read_csv("/Users/yuhe/Desktop/DTL_Jason_CNN/data/matching_symptoms.csv")
+    embedding_df=pd.read_csv("../../data/matching_symptoms.csv")
 
     l=all_features(source_train, target_train, target_test)
 
@@ -31,17 +31,17 @@ def emb_dic(source_train, target_train, target_test):
         idx+=1
 
     matrix_len=len(l)
-    weights_matrix = np.zeros((matrix_len, 500))
+    embedding_matrix = np.zeros((matrix_len, 500))
     words_found = 0
 
     for row in embedding_df.itertuples():
         try: 
-            weights_matrix[cui2idx[row[1]]] = row[2:]
+            embedding_matrix[cui2idx[row[1]]] = row[2:]
             words_found += 1
         except KeyError:
             continue
     
-    return cui2idx, torch.Tensor(weights_matrix)
+    return cui2idx, torch.Tensor(embedding_matrix)
 
 def df2ids(df, cui2idx):
     df=pd.DataFrame(df)
@@ -53,6 +53,7 @@ def df2ids(df, cui2idx):
         for i,j in enumerate(col):
             input_id.append(cui2idx[j+'_'+row[1+i]])
         input_ids.append(input_id)
+        
     return pd.DataFrame(input_ids)
 
 
@@ -168,7 +169,7 @@ def prepare_datasets_returnSourceVal(source_train_path, target_train_path, targe
     target_test_features, target_test_labels = parse_csv(target_test_path, label_key)
     # target_test_features_dummies = pd.get_dummies(target_test_features)
 
-    cui2idx, weights_matrix=emb_dic(source_train_features, target_train_features, target_test_features)
+    cui2idx, embedding_matrix=emb_dic(source_train_features, target_train_features, target_test_features)
 
     target_test_dataset = Dataset(df2ids(target_test_features,cui2idx), target_test_labels)
     ## newly added target train dataset
@@ -189,7 +190,7 @@ def prepare_datasets_returnSourceVal(source_train_path, target_train_path, targe
     print("source_val_feature:"+ str(source_val_features.shape))
     print("target_test_feature:" + str(target_test_features.shape))
 
-    return source_train_dataset, source_val_dataset, target_test_dataset, target_train_dataset, weights_matrix
+    return source_train_dataset, source_val_dataset, target_test_dataset, target_train_dataset,cui2idx, embedding_matrix
 
 
 def prepare_datasets_stratify(source_train_path, target_train_path, target_test_path, label_key, validation_split):

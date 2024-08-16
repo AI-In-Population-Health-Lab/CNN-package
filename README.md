@@ -1,12 +1,8 @@
 # CNN_package
-This package is modified from DTL package, using CNN as the algorithm.
+All codes are under Yuhe_working folder.
 
-cui2vec_pretrained.csv can be downloaded here: https://figshare.com/s/00d69861786cd0156d81
+preprocess.py is where you can get the pre-trained embeddings from LLMs.
 
-For now, please only try learnSourceModel.py for algorithm implementation. 
-just try python learnSourceModel.py, it will use default settings.
+runModel.py is to run Local CNN.
 
-text embedding CNN example:
-https://chriskhanhtran.github.io/posts/cnn-sentence-classification/.
-https://medium.com/@martinpella/how-to-use-pre-trained-word-embeddings-in-pytorch-71ca59249f76.
-
+SLC2AC.py is TL-CNN.

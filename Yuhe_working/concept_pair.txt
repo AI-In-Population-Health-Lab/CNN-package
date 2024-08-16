@@ -1,0 +1,92 @@
+C0038435: abdominal stress
+C0000737: abdominal pain
+C0232498: abdominal tenderness
+C0235295: abdominal distress
+C0003123: anorexia
+C0003578: apnea
+C0003862: arthralgia
+C0006271: bronchiolitis
+C0006277: bronchitis
+C0008031: chest pain
+C0009763: conjunctivitis
+C0010380: croup
+C0010520: cyanosis
+C0011991: diarrhea
+C0013404: dyspnea
+C0015672: weakness or fatigue
+C0018681: headache
+C0019079: hemoptysis
+C0019825: hoarseness
+C0026837: rigor
+C0027424: stuffy nose
+C0027497: nausea
+C0031350: pharyngitis diagnosis
+C0032285: other pneumonia
+C0032310: viral pneumonia
+C0034642: rales
+C0035508: rhonchi
+C0036572: seizure
+C0038450: stridor
+C0041912: upper respiratory infection
+C0042740: viral syndrome
+C0042963: vomiting
+C0043144: wheezing
+C0085593: chills
+C0231218: malaise
+C0231528: myalgia
+C0231835: tachypnea
+C0231911: paroxysmal cough
+C0234866: barking cough
+C0235592: cervical lymphadenopathy
+C0235896: infiltrate
+C0239134: productive cough
+C0239135: staccato cough
+C0241902: grunting
+C0242429: sore throat
+C0277873: nasal flaring
+C0343484: other cough
+C0391853: decreased activity
+C0420679: lab order (nasal swab)
+C0424781_P: high grade temperature (> = 104.0F / 40C)
+C0424781_A: low grade temperature(100.4F–103.9F / 38–39.9C)
+C0424781_I: inconsequential temperature (<100.4F / 38C)
+C0424781_M: no temperature information
+C0425545: crackles
+C0476273: respiratory distress
+C0521839: influenza-like illness
+C0576456: poor feeding
+C0600688: toxic appearance
+C0700037: streptococcal pharyngitis
+C0700292: hypoxemia (sp02 on room air < 90%)
+C0729744: other abnormal breath sounds
+C0850149: nonproductive cough
+C1260880: runny nose
+C1276802: acute onset
+C1656431: lab testing ordered ( Respiratory Syncytial Virus Infection)
+C1978700: lab testing ordered (influenza w/other respiratory pathogens panel)
+C2051411: ill-appearing
+C2055125: reported fever
+C2077320: chest wall retractions
+C2215098: bilateral acute conjunctivitis
+C2321692: lab positive coronavirus
+C2363865: lab positive  Respiratory Syncytial Virus Infection
+C2747790: lab positive strep a
+C2748210: lab positive rhinovirus
+C2748288: lab positive parainfluenza
+C2748306: lab positive adenovirus
+C2748323: lab positive enterovirus
+C2939015: lab testing ordered (influenza)
+C2939017: lab positive influenza
+C3544070: lab positive Human Metapneumovirus
+OC0003419: poor response of fever to antipyretics
+OC0031350: pharyngitis on exam
+OC3842377: abnormal chest radiograph findings
+AC000001: posttussive emesis
+AC000002: lab positive vrp - pathogen not specified
+AC000003:  Respiratory Syncytial Virus Infection-like illness
+AC000004: nasopharyngeal suctioning
+AC000005: parainfluenza
+AC000006: metapneumovirus
+agegroup_ge6ls65: ages between 5 and 65, a mixed age group, might include young child, teenager, middle-age, elderly
+agegroup_ls5: ages less then 5, might be infant, baby, or very young kids 
+agegroup_ge64: ages higher than 65, elderly person

@@ -37,7 +37,7 @@ class CNN_feedforward(nn.Module):
     def __init__(self, pretrained_embedding=None,
                  freeze_embedding=True,
                  cuis_size=None,
-                 embed_dim=500,
+                 embed_dim=768,
                  filter_sizes=[2,3,4],
                  num_filters=[100,100,100],
                  num_classes=2,
@@ -63,7 +63,7 @@ class CNN_feedforward(nn.Module):
        
        # Conv Network
         self.conv1d_list = nn.ModuleList([
-            nn.Conv1d(in_channels=self.embed_dim,
+            nn.Conv1d(in_channels=1,   #in_channels=self.embed_dim,
                       out_channels=num_filters[i],
                       kernel_size=filter_sizes[i])
             for i in range(len(filter_sizes))

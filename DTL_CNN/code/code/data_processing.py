@@ -16,7 +16,7 @@ def all_features(source_train, target_train, target_test):
     return all_feature_cols.to_list()
 
 def emb_dic(source_train, target_train, target_test):
-    embedding_df=pd.read_csv("../../data/matching_symptoms.csv")
+    embedding_df=pd.read_csv("../../data/NegBERT_cui_embedding.csv")
 
     l=all_features(source_train, target_train, target_test)
 
@@ -31,7 +31,7 @@ def emb_dic(source_train, target_train, target_test):
         idx+=1
 
     matrix_len=len(l)
-    embedding_matrix = np.zeros((matrix_len, 500))
+    embedding_matrix = np.zeros((matrix_len, 768))
     words_found = 0
 
     for row in embedding_df.itertuples():

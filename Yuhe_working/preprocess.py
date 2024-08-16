@@ -13,18 +13,18 @@ import pandas as pd
 from typing import List
 # openai.api_key = "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" -yuelyu
 from openai import OpenAI
-client = OpenAI(api_key = "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")
+client = OpenAI(api_key = "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")  #--yuhe
 import os
 # embedding model parameters
 embedding_model = "text-embedding-ada-002"
 embedding_encoding = "cl100k_base"  # this the encoding for text-embedding-ada-002
 max_tokens = 8000  # the maximum for text-embedding-ada-002 is 8191
 
-# 设置UMLS API的基本URL和API密钥
+# UMLS api_key
 # api_key = '9e94f74f-affb-4a7d-9695-c0ccd48fede5' -yuelyu
-api_key = '28c7f62f-59df-4cfe-8f21-97f2228a0f8f'
+api_key = '28c7f62f-59df-4cfe-8f21-97f2228a0f8f'# --yuhe
 
-# 根据CUI获取医疗实体名称
+
 # def get_cui_name(cui):
 #     base_url = 'https://uts-ws.nlm.nih.gov/rest/content/current/CUI/'
 #     query_url = f'{base_url}{cui}/'
@@ -48,7 +48,7 @@ def get_openai_embeding(text):
     embedding_tensor = torch.tensor(embedding).unsqueeze(0)
     return embedding_tensor
 
-# 生成embedding
+
 def get_embedding(text, model_type,tokenizer=None, model=None):
     if model_type in ["bert", "negbert","clinicalBert","biobert","pubmedbert"]:
         inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
@@ -67,12 +67,12 @@ def get_embedding(text, model_type,tokenizer=None, model=None):
 def save_embeddings_to_hdf5(embeddings_dict, file_name):
     with h5py.File(file_name, 'w') as hdf5_file:
         for cui, embedding in embeddings_dict.items():
-            # 确保embedding是numpy数组
+
             embedding_array = np.array(embedding)
             hdf5_file.create_dataset(cui, data=embedding_array)
 
 
-# 读取文件中的CUI并生成embedding
+
 def generate_embeddings(file_name, model_type, plain_neg=False):
     if model_type == "bert":
         tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -151,15 +151,14 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
                 embeddings[neg_cui_name] = neg_embedding
     return embeddings
 
-# # 模型映射
+# 
 # MODEL_MAP = {
 #     "bert": (AutoTokenizer.from_pretrained("bert-base-uncased"), AutoModel.from_pretrained("bert-base-uncased")),
 #     "negbert": (AutoTokenizer.from_pretrained('bvanaken/clinical-assertion-negation-bert'), AutoModel.from_pretrained('bvanaken/clinical-assertion-negation-bert')),
-#     # 添加其他模型
+#  
 # }
 
-# 主函数
-# python preprocess.py --file_name /ihome/hdaqing/yuj49/.mozilla/YeyeProject/Multi-DANN/data/CUIraw/embedding_raw/concept.txt --model_type openai
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -179,7 +178,7 @@ def main():
 
     cui_embeddings = generate_embeddings(args.file_name, args.model_type,args.use_plain_neg)
     filename = args.file_name.split("/")[-1].split(".")[0]
-      # 将embeddings保存到HDF5文件
+    # save embeddings
     if "concept" in filename:
         hdf5_file_name = "cui_embeddings/"+f"{filename}_{args.model_type}" + ".h5"
     else:

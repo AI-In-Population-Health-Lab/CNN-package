@@ -50,7 +50,7 @@ def get_openai_embeding(text):
 
 
 def get_embedding(text, model_type,tokenizer=None, model=None):
-    if model_type in ["bert", "negbert","clinicalBert","biobert","pubmedbert"]:
+    if model_type in ["bert", "negbert","clinicalBert","biobert","pubmedbert",'medbert']:
         inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -92,6 +92,9 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
     elif model_type == "pubmedbert":
         tokenizer = AutoTokenizer.from_pretrained("neuml/pubmedbert-base-embeddings")
         model =  AutoModel.from_pretrained("neuml/pubmedbert-base-embeddings")
+    elif model_type == 'medbert':
+        tokenizer = AutoTokenizer.from_pretrained("Charangan/MedBERT")
+        model = AutoModel.from_pretrained("Charangan/MedBERT")
 
         # tokenizer = AutoTokenizer.from_pretrained('/Users/yuhe/Desktop/AIPH/llama/llama-2-7b')
         # model =  AutoModel.from_pretrained('/Users/yuhe/Desktop/AIPH/llama/llama-2-7b')
@@ -117,7 +120,7 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
 
             if "agegroup" in concept:
                 print("age description: ", concept_name)
-                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert']:
+                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert','medbert']:
                     embedding = get_embedding(concept_name, model_type,tokenizer, model)
                 else:
                     embedding = get_embedding(concept_name, model_type)
@@ -125,7 +128,7 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
                 embeddings[concept_name_] = embedding
             if "C0424781" in concept:
                 print("C0424781: ", concept_name)
-                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert']:
+                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert','medbert']:
                     embedding = get_embedding(concept_name, model_type,tokenizer, model)
                 else:
                     embedding = get_embedding(concept_name, model_type)
@@ -138,7 +141,7 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
                     concept_neg = "Not " + concept_name
                 print(concept,"cui_name",concept_name)
                 print(concept,"cui_neg",concept_neg)
-                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert']:
+                if model_type in ["bert", "negbert",'clinicalBert','biobert','pubmedbert','medbert']:
                     embedding = get_embedding(concept_name, model_type,tokenizer, model)
                     neg_embedding = get_embedding(concept_neg, model_type,tokenizer, model)
                 else:
@@ -167,11 +170,12 @@ def main():
     # parser.add_argument("--model_type", type=str, default="bert", help="Model type")
     # parser.add_argument("--model_type", type=str, default="negbert", help="Model type")
     # parser.add_argument("--model_type", type=str, default="llama", help="Model type")
-    parser.add_argument("--model_type", type=str, default="openai", help="Model type")
+    # parser.add_argument("--model_type", type=str, default="openai", help="Model type")
 
     # parser.add_argument("--model_type", type=str, default="clinicalBert", help="Model type")
     # parser.add_argument("--model_type", type=str, default="biobert", help="Model type")
     # parser.add_argument("--model_type", type=str, default="negbert", help="Model type")
+    parser.add_argument("--model_type", type=str, default="medbert", help="Model type")
 
 
     args = parser.parse_args()

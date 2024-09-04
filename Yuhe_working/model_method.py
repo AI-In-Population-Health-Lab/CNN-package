@@ -6,12 +6,12 @@ from class_define import Dataset, AverageMeter, ForeverDataIterator
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torch.nn as nn
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 from cnn_feedforward import CNN_feedforward
 import time
 from sklearn import metrics
 
-def processDataset(file_path,disease, disease_label, cui_label=None):
+def processDataset(file_path,disease, disease_label, cui_label=None, source=False):
     #read data
     df=pd.read_excel(file_path)
 
@@ -26,6 +26,9 @@ def processDataset(file_path,disease, disease_label, cui_label=None):
     #update M to F
         for col in df.loc[:,df.columns.str.startswith("C")].columns:
             df[col]=np.where(df[col]=='M', 'A', df[col])
+    
+    if source:
+        df=df[df['admityear']!='20140601-20150531']
     
     return df
 
@@ -50,7 +53,7 @@ def get_APM_cui(df, df2=pd.DataFrame()):
         df2=df2.loc[:, df2.columns.str.startswith("C") | df2.columns.str.startswith("AC") | df2.columns.str.startswith("OC") | df2.columns.str.startswith("age")]
         return df, set(pd.get_dummies(df2).columns.to_list()+pd.get_dummies(df).columns.to_list())
     
-def emb_dic(df,embedding_df, df2=pd.DataFrame()):
+def emb_dic(df,baseline=False,embedding_df=None,df2=pd.DataFrame()):
     l=get_APM_cui(df,df2)[1]
     l=sorted(l)
 
@@ -61,26 +64,46 @@ def emb_dic(df,embedding_df, df2=pd.DataFrame()):
     for i in l:
         cui=i
         cuis.append(cui)
-        cui2idx[cui]=idx
-        idx+=1
+        # cui2idx[cui]=idx      # wo. mask
+        # idx+=1
 
-    matrix_len=len(l)
-    embedding_matrix = np.zeros((matrix_len, len(embedding_df.columns)))
-    words_found = 0
+        if 'M' not in cui:      # w. mask
+            idx+=1
+            cui2idx[cui]=idx
+            
+        else:
+            cui2idx[cui]=0
 
-    for row in embedding_df.itertuples():
-        try: 
-            embedding_matrix[cui2idx[row[0]]] = row[1:]
-            words_found += 1
-            # print(row[0])
-        except KeyError:
-            continue
-    print(words_found)
+    # matrix_len=len(l) # wo. mask
+    matrix_len=idx+1
+
+    if baseline:
+        print("One-hot embedding")
+        embedding_matrix = np.zeros((matrix_len, matrix_len))
+        for i in cui2idx:
+            if 'M' in i:
+                continue
+            embedding_matrix[cui2idx[i]][cui2idx[i]]=1
+
+    else:
+        print('Semnatic embedding')                                
+        embedding_matrix = np.zeros((matrix_len, len(embedding_df.columns)))
+        words_found = 0
+
+        for row in embedding_df.itertuples():
+            try: 
+                embedding_matrix[cui2idx[row[0]]] = row[1:]
+                words_found += 1
+                # print(row[0])
+            except KeyError:
+                continue
+        print(words_found)
     return cui2idx, torch.Tensor(embedding_matrix)
 
 def df2ids(df, cui2idx):
     df=get_APM_cui(df)[0]
-    col=df.columns
+    col=df.columns # wo. mask
+    # col=[i for i in df.columns if 'M' not in i] # w. mask
     input_ids=[]
 
     for row in df.itertuples():
@@ -152,9 +175,13 @@ def splitTrainValTest(df, disease, batch_size,cui2idx):
 
     #split train and test
     train_val=df[~df['admityear'].isin(['20140601-20150531'])]
-    train=train_val[~train_val['admityear'].isin(['20130601-20140531'])]
-    val=train_val[train_val['admityear'].isin(['20130601-20140531'])]
+    # train=train_val[~train_val['admityear'].isin(['20130601-20140531'])]
+    # val=train_val[train_val['admityear'].isin(['20130601-20140531'])]
     test=df[df['admityear'].isin(['20140601-20150531'])]
+    train=train_val.sample(frac=0.8, random_state=1)
+    val=train_val[~train_val["ID"].isin(train["ID"])]
+    print(train[disease+'_diagnosis'].value_counts())
+    print(val[disease+'_diagnosis'].value_counts())
 
     # print(test)
 
@@ -177,13 +204,18 @@ def prepareSourceTargetDataset(df1,df2, disease, batch_size,cui2idx1, cui2idx2):
     df2[disease+'_diagnosis'+ "-codes"] = df2[disease+'_diagnosis'].cat.codes # add codes column for label (e.g. 0, 1, 2)
     #split train and test
 
-    source_train=df1[~df1['admityear'].isin(['20140601-20150531'])]
-    source_val=df1[df1['admityear'].isin(['20140601-20150531'])]
+    # source_train=df1[~df1['admityear'].isin(['20140601-20150531'])]
+    # source_val=df1[df1['admityear'].isin(['20140601-20150531'])]
+    source_train=df1.sample(frac=0.8, random_state=1)
+    source_val=df1[~df1["ID"].isin(source_train["ID"])]
 
     target_train_val=df2[~df2['admityear'].isin(['20140601-20150531'])]
-    target_train=target_train_val[~target_train_val['admityear'].isin(['20130601-20140531'])]
-    target_val=target_train_val[target_train_val['admityear'].isin(['20130601-20140531'])]
+    # target_train=target_train_val[~target_train_val['admityear'].isin(['20130601-20140531'])]
+    # target_val=target_train_val[target_train_val['admityear'].isin(['20130601-20140531'])]
     target_test=df2[df2['admityear'].isin(['20140601-20150531'])]
+    target_train=target_train_val.sample(frac=0.8, random_state=1)
+    target_val=target_train_val[~target_train_val["ID"].isin(target_train["ID"])]
+    
 
     # print(test)
 
@@ -204,6 +236,7 @@ def prepareSourceTargetDataset(df1,df2, disease, batch_size,cui2idx1, cui2idx2):
 
 
 def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, seeds, epoch, in_channels, stride, padding, filter_sizes):
+    log=""
     best_acc1 = 0.
     for seed in seeds:
         torch.manual_seed(seed)
@@ -212,7 +245,9 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
         classifier.to(device)
 
         # define optimizer and lr scheduler
-        optimizer = SGD(classifier.parameters(), 0.01, momentum=0.9, weight_decay=1e-3, nesterov=True)
+        optimizer = SGD(classifier.parameters(), 0.001, momentum=0.9, weight_decay=1e-3, nesterov=True)
+
+        # optimizer = Adam(classifier.parameters(), lr=0.001, weight_decay=1e-3)
 
         train_loader_iter=ForeverDataIterator(train_loader)
         # start training
@@ -231,11 +266,12 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
                 data_time.update(time.time() - end)
             
                 x_s, labels_s = next(train_loader_iter)
+                # print("x_s: ",x_s.shape)
                 x_s = x_s.to(device)
                 labels_s = labels_s.to(device)
             
                 # compute output
-                y_s = classifier(x_s)
+                y_s = classifier(x_s,True)
                 loss = F.cross_entropy(y_s, labels_s)
             
                 # update meters
@@ -271,6 +307,7 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
             
             val_accuracy = val_correct / val_total
             print(f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}')
+            log+=f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}\n'
             
             # Save the best model
             if val_accuracy > best_acc1:
@@ -285,10 +322,11 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
     for param_tensor in classifier.state_dict():
         print(param_tensor, "\t", classifier.state_dict()[param_tensor].size())
     
-    return classifier
+    return classifier, log
 
 
 def targetTune(device,classifier, target_train_loader, target_val_loader,embedding_matrix,cui2idx, seeds,epoch,in_channels):
+    log=''
     best_acc1 = 0.
     for seed in seeds:
         torch.manual_seed(seed)
@@ -357,6 +395,7 @@ def targetTune(device,classifier, target_train_loader, target_val_loader,embeddi
             
             val_accuracy = val_correct / val_total
             print(f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}')
+            log+=f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}\n'
             
             # Save the best model
             if val_accuracy > best_acc1:
@@ -371,7 +410,7 @@ def targetTune(device,classifier, target_train_loader, target_val_loader,embeddi
     for param_tensor in classifier.state_dict():
         print(param_tensor, "\t", classifier.state_dict()[param_tensor].size())
     
-    return classifier
+    return classifier, log
     
 
 def accuracy(output, target, topk=(1,)):
@@ -417,7 +456,7 @@ def printListToFile(fileName, total_y_true, total_y_pred1, total_y_pred2,
     return avg_auc, auc_I, auc_M
 
 
-def performance(device, classifier, loader):
+def performance(device, classifier, loader, file_name):
     # torch.manual_seed(seed)
     total_y_pred1 = np.array([[]])
     total_y_pred2 = np.array([[]])
@@ -465,6 +504,7 @@ def performance(device, classifier, loader):
         print(' * Acc@1 {top1.avg:.3f}'
               .format(top1=top1))
     
-        avg_auc,auc_I,auc_M= printListToFile("bert_results.csv",total_y_true,total_y_pred1,total_y_pred2, total_y_diagnosis,total_y_correct)
-        print(avg_auc)
+        avg_auc,auc_I,auc_M= printListToFile(file_name,total_y_true,total_y_pred1,total_y_pred2, total_y_diagnosis,total_y_correct)
+        print(f' AUROC {avg_auc}')
+        return ' * Acc@1 {top1.avg:.3f}'.format(top1=top1)+"\n"+f' * AUROC {avg_auc}\n '
 

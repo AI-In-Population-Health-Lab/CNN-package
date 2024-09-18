@@ -1,2 +1,0 @@
-d_kl,source_train_path,seed_index,seed,test_acc1,avg_auc,auc_I,auc_M
--1,findings_final_0814_seed1591536269_size10000_I,0,14942,86.1,0.9195376403994164,0.9195378162661226,0.9195374645327101

@@ -8,21 +8,18 @@ import numpy as np
 import json
 import h5py
 import pandas as pd
+import os
 # import tiktoken
 # import openai
 from typing import List
-# openai.api_key = "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" -yuelyu
+
 from openai import OpenAI
-client = OpenAI(api_key = "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")  #--yuhe
-import os
-# embedding model parameters
-embedding_model = "text-embedding-ada-002"
-embedding_encoding = "cl100k_base"  # this the encoding for text-embedding-ada-002
-max_tokens = 8000  # the maximum for text-embedding-ada-002 is 8191
+client = OpenAI(api_key = 'your_own_OpenAI_API_key')
+
+
 
 # UMLS api_key
-# api_key = '9e94f74f-affb-4a7d-9695-c0ccd48fede5' -yuelyu
-api_key = '28c7f62f-59df-4cfe-8f21-97f2228a0f8f'# --yuhe
+api_key = 'your_own_UMLS_API_key'
 
 
 # def get_cui_name(cui):
@@ -55,12 +52,6 @@ def get_embedding(text, model_type,tokenizer=None, model=None):
         with torch.no_grad():
             outputs = model(**inputs)
         return outputs.last_hidden_state[:, 0, :].numpy() #[1: token : 768]
-    elif model_type == "llama":
-        tokenizer.pad_token = tokenizer.eos_token
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
-        with torch.no_grad():
-            outputs = model(**inputs)
-        return outputs.last_hidden_state[:, 0, :].numpy() # (1, 4096)
     else:
         return get_openai_embeding(text)
 
@@ -80,9 +71,6 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
     elif model_type == "negbert":
         tokenizer = AutoTokenizer.from_pretrained("bvanaken/clinical-assertion-negation-bert")
         model =  AutoModel.from_pretrained("bvanaken/clinical-assertion-negation-bert")
-    elif model_type == "llama":
-        tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf')
-        model =  AutoModel.from_pretrained('meta-llama/Llama-2-7b-hf')
     elif model_type == "clinicalBert":
         tokenizer = AutoTokenizer.from_pretrained('medicalai/ClinicalBERT')
         model =  AutoModel.from_pretrained('medicalai/ClinicalBERT')
@@ -96,8 +84,6 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
         tokenizer = AutoTokenizer.from_pretrained("Charangan/MedBERT")
         model = AutoModel.from_pretrained("Charangan/MedBERT")
 
-        # tokenizer = AutoTokenizer.from_pretrained('/Users/yuhe/Desktop/AIPH/llama/llama-2-7b')
-        # model =  AutoModel.from_pretrained('/Users/yuhe/Desktop/AIPH/llama/llama-2-7b')
 
     embeddings = {}
 
@@ -154,13 +140,6 @@ def generate_embeddings(file_name, model_type, plain_neg=False):
                 embeddings[neg_cui_name] = neg_embedding
     return embeddings
 
-# 
-# MODEL_MAP = {
-#     "bert": (AutoTokenizer.from_pretrained("bert-base-uncased"), AutoModel.from_pretrained("bert-base-uncased")),
-#     "negbert": (AutoTokenizer.from_pretrained('bvanaken/clinical-assertion-negation-bert'), AutoModel.from_pretrained('bvanaken/clinical-assertion-negation-bert')),
-#  
-# }
-
 
 def main():
 
@@ -169,7 +148,6 @@ def main():
     parser.add_argument("--use_plain_neg", type=bool, default=False, help="use plain neg")
     # parser.add_argument("--model_type", type=str, default="bert", help="Model type")
     # parser.add_argument("--model_type", type=str, default="negbert", help="Model type")
-    # parser.add_argument("--model_type", type=str, default="llama", help="Model type")
     # parser.add_argument("--model_type", type=str, default="openai", help="Model type")
 
     # parser.add_argument("--model_type", type=str, default="clinicalBert", help="Model type")
@@ -186,12 +164,9 @@ def main():
     if "concept" in filename:
         hdf5_file_name = "cui_embeddings/"+f"{filename}_{args.model_type}" + ".h5"
     else:
-        hdf5_file_name = "cui_embeddings/"+f"{filename}_{args.model_type}_plainN{args.use_plain_neg}" + ".h5"  # 假设HDF5文件和CUI文件同名但扩展名为.h5
+        hdf5_file_name = "cui_embeddings/"+f"{filename}_{args.model_type}_plainN{args.use_plain_neg}" + ".h5" 
     save_embeddings_to_hdf5(cui_embeddings, hdf5_file_name)
 
-    # print(cui_embeddings['C1978700 Not lab testing ordered (influenza w/other respiratory pathogens panel)'])
-    # # print(cui_embeddings.keys())
-    # print(cui_embeddings['C1978700 lab testing ordered (influenza w other respiratory pathogens panel)'])
 
     
 

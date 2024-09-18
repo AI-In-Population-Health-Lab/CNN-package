@@ -62,7 +62,7 @@ for baseline in baselines:
         # classifier=model_running(device, train_loader, val_loader,embedding_matrix, cui2idx, seed, epoch, in_channels=len(embedding_cui.columns), stride=stride, padding=padding, filter_sizes=[cui_channel])  ## only 1 filter with width of all channel
         # classifier=model_running(device, train_loader, embedding_matrix, cui2idx, seed, epoch, in_channels=cui_channel, stride=stride, padding=padding)
 
-        result_name=f"best_results/0913/{source}2{target}_noTune_best_result_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}"
+        result_name=f"best_results/{source}2{target}_noTune_best_result_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}"
 
         print("############## Model Setting ###############")
         print('llm: ', llm)
@@ -80,7 +80,7 @@ for baseline in baselines:
         # print("train performance:")
         # r2=performance(device, classifier, train_loader,result_name+"_train.csv")
 
-        log_name=f"experimentLog/0913/{source}2{target}_noTune_experiment_log_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}.txt"
+        log_name=f"experimentLog/{source}2{target}_noTune_experiment_log_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}.txt"
 
         with open(log_name,'w') as f:
             f.write("##############  AC Model Setting ###############\n")

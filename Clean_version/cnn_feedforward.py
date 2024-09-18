@@ -8,13 +8,14 @@ class CNN_feedforward(nn.Module):
                  freeze_embedding=True,
                  cuis_size=None,
                  embed_dim=768,
-                 filter_sizes=[2,3,4],
-                 num_filters=[100,100,100],
+                 filter_sizes=[1],
+                 num_filters=[100],
                  num_classes=2,
                  dropout=0.5,
                  in_channels=768,
                  stride=0,
-                 padding=0):
+                 padding=0,
+                 freezeCL=False):
         super(CNN_feedforward, self).__init__()
         # Embedding layer
         if pretrained_embedding is not None:
@@ -27,7 +28,7 @@ class CNN_feedforward(nn.Module):
                                           embedding_dim=self.embed_dim,
                                           padding_idx=0,
                                           max_norm=5.0)
-
+        
 
         # number_of_channel = symptom_size
         kernel_size = 3  # Size of the convolutional kernel
@@ -52,9 +53,20 @@ class CNN_feedforward(nn.Module):
         #     nn.Conv2d(1, number_of_channel, (fs, embedding_dim)) for fs in filter_sizes
         # ])
         # self.pool = nn.MaxPool2d(kernel_size, stride, padding)
+        if freezeCL:
+            # for param in self.embedding.parameters():
+            #     param.requires_grad = False  # Freeze the embedding layer
+
+            for conv1d in self.conv1d_list:
+                for param in conv1d.parameters():
+                    param.requires_grad = False  # Freeze all convolutional layers
+
+            # Only the fully connected layer will be trainable
+            for param in self.fc.parameters():
+                param.requires_grad = True
 
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, mask=False):
         # print("x dtype")
         # print(x.dtype)
         # x = x.long()
@@ -79,7 +91,13 @@ class CNN_feedforward(nn.Module):
 
         # Get embeddings from `input_ids`. Output shape: (b, max_len, embed_dim) 
         x_embed = self.embedding(input_ids.long()).float()
-        #print(x_embed.shape) #32*65*768
+        # print('x_embed1: ', x_embed.shape()) #32*65*768
+
+        if mask:
+            mask = (input_ids != 0).long()
+            mask = mask.unsqueeze(-1).float()  # Shape: (b, max_len, 1)
+            x_embed = x_embed * mask
+            # print('x_embed2: ', x_embed) #32*65*768
 
         # Permute `x_embed` to match input shape requirement of `nn.Conv1d`.
         # Output shape: (b, embed_dim, max_len)

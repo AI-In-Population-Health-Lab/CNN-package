@@ -61,7 +61,7 @@ for baseline in baselines:
         stride=1
         padding=0
 
-        result_name=f"best_results/0913/freezeCL_{source}2{target}_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}"
+        result_name=f"best_results/freezeCL_{source}2{target}_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}"
 
         print(f"LLM {llm}")
         print("load model\n")
@@ -71,7 +71,7 @@ for baseline in baselines:
 
 
         classifier = CNN_feedforward(pretrained_embedding=embedding_matrix, cuis_size=len(cui2idx), in_channels=inchannels, stride=stride, padding=padding, filter_sizes=[1],freezeCL=True)
-        classifier.load_state_dict(torch.load(f'model_path/0913/{source}_best_model_{llm}.pth'))
+        classifier.load_state_dict(torch.load(f'model_path/{source}_best_model_{llm}.pth'))
         classifier.to(device)
 
         print("Starting tuning on target: ")
@@ -96,7 +96,7 @@ for baseline in baselines:
         print("train performance:")
         r2=performance(device, tune_classifier, train_loader,result_name+"_train.csv")
 
-        log_name=f"experimentLog/0913/freezeCL_{source}2{target}_experiment_log_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}.txt"
+        log_name=f"experimentLog/freezeCL_{source}2{target}_experiment_log_{llm}_bs{batch_size}_e{epoch}_seed{seeds_n}.txt"
 
         with open(log_name,'w') as f:
             f.write("############## TL Model Setting ###############\n")

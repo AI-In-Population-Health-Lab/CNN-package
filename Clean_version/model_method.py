@@ -10,8 +10,8 @@ from torch.optim import SGD, Adam
 from cnn_feedforward import CNN_feedforward
 import time
 from sklearn import metrics
-
-def processDataset(file_path,disease, disease_label, cui_label=None, source=False):
+from sklearn.metrics import roc_auc_score
+def processDataset(file_path,disease, disease_label, cui_label=None, source=False, upsampling=False):
     #read data
     df=pd.read_excel(file_path)
 
@@ -25,10 +25,24 @@ def processDataset(file_path,disease, disease_label, cui_label=None, source=Fals
     if cui_label=="M to A":
     #update M to F
         for col in df.loc[:,df.columns.str.startswith("C")].columns:
+            if col =="C0424781":
+                continue
+            df[col]=np.where(df[col]=='M', 'A', df[col])
+        for col in df.loc[:,df.columns.str.startswith("AC")].columns:
+            df[col]=np.where(df[col]=='M', 'A', df[col])
+        for col in df.loc[:,df.columns.str.startswith("OC")].columns:
             df[col]=np.where(df[col]=='M', 'A', df[col])
     
     if source:
         df=df[df['admityear']!='20140601-20150531']
+
+    if upsampling:
+        neg=df[df[disease+'_diagnosis']=='F']
+        pos=df[df[disease+'_diagnosis']=='T']
+        ratio=neg.shape[0]/pos.shape[0]
+        for i in range(int(ratio)):
+            neg=pd.concat([neg,pos],ignore_index=True)
+        df=neg
     
     return df
 
@@ -179,7 +193,8 @@ def splitTrainValTest(df, disease, batch_size,cui2idx):
     # val=train_val[train_val['admityear'].isin(['20130601-20140531'])]
     test=df[df['admityear'].isin(['20140601-20150531'])]
     train=train_val.sample(frac=0.8, random_state=1)
-    val=train_val[~train_val["ID"].isin(train["ID"])]
+    val = train_val.drop(train.index)
+    # val=train_val[~train_val["ID"].isin(train["ID"])]
     print(train[disease+'_diagnosis'].value_counts())
     print(val[disease+'_diagnosis'].value_counts())
 
@@ -235,9 +250,9 @@ def prepareSourceTargetDataset(df1,df2, disease, batch_size,cui2idx1, cui2idx2):
     return source_train_loader, source_val_loader, target_train_loader,target_val_loader,target_test_loader, cui_channel
 
 
-def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, seeds, epoch, in_channels, stride, padding, filter_sizes):
+def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, seeds, epoch, in_channels, stride, padding, filter_sizes,llm, source):
     log=""
-    best_acc1 = 0.
+    best_auroc = 0.
     for seed in seeds:
         torch.manual_seed(seed)
 
@@ -291,6 +306,9 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
             val_correct = 0
             val_total = 0
             
+            all_labels=[]
+            all_pred=[]
+
             with torch.no_grad():
                 for x_val, labels_val in val_loader:
                     x_val = x_val.to(device)
@@ -304,18 +322,29 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
                     _, predicted = torch.max(y_val, 1)
                     val_correct += (predicted == labels_val).sum().item()
                     val_total += labels_val.size(0)
+
+                    all_labels.extend(labels_val.cpu().numpy())
+                    all_pred.extend(y_val.cpu().numpy())
+                    # print(y_val)
             
             val_accuracy = val_correct / val_total
-            print(f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}')
-            log+=f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}\n'
+            # print(all_labels)
+            # print(all_pred[:][1])
+            all_pred=np.array(all_pred)
+            AUROC=roc_auc_score(all_labels, all_pred[:,1])
+            print(f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}, Val AUROC: {AUROC:.4f}')
+            log+=f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}, Val AUROC: {AUROC:.4f}\n'
             
             # Save the best model
-            if val_accuracy > best_acc1:
-                best_acc1 = val_accuracy
-                torch.save(classifier.state_dict(), 'best_model.pth')
+            # if val_accuracy > best_acc1:
+            #     best_acc1 = val_accuracy
+            #     torch.save(classifier.state_dict(), 'best_model.pth')
+            if AUROC > best_auroc:
+                best_auroc = AUROC
+                torch.save(classifier.state_dict(), f'model_path/{source}_best_model_{llm}.pth')
 
     print("Training complete.")
-    print(classifier.load_state_dict(torch.load('best_model.pth')))
+    print(classifier.load_state_dict(torch.load( f'model_path/{source}_best_model_{llm}.pth')))
 
     # Print model's state_dict
     print("Model's state_dict:")
@@ -325,9 +354,11 @@ def model_running(device, train_loader,val_loader, embedding_matrix, cui2idx, se
     return classifier, log
 
 
-def targetTune(device,classifier, target_train_loader, target_val_loader,embedding_matrix,cui2idx, seeds,epoch,in_channels):
+def targetTune(device,classifier, target_train_loader, target_val_loader,embedding_matrix,cui2idx, seeds,epoch,in_channels,llm, source, target, freezeCL):
     log=''
     best_acc1 = 0.
+    best_auroc=0.
+    embedding_matrix=embedding_matrix.to(device)
     for seed in seeds:
         torch.manual_seed(seed)
         # classifier = CNN_feedforward(pretrained_embedding=embedding_matrix, cuis_size=len(cui2idx), in_channels=in_channels, stride=1, padding=0, filter_sizes=[2,3,4])
@@ -357,9 +388,9 @@ def targetTune(device,classifier, target_train_loader, target_val_loader,embeddi
                 x_s, labels_s = next(train_loader_iter)
                 x_s = x_s.to(device)
                 labels_s = labels_s.to(device)
-            
+
                 # compute output
-                y_s = classifier(x_s)
+                y_s = classifier(x_s, True)
                 loss = F.cross_entropy(y_s, labels_s)
             
                 # update meters
@@ -378,6 +409,8 @@ def targetTune(device,classifier, target_train_loader, target_val_loader,embeddi
             val_losses = AverageMeter('Val Loss', ':6.2f')
             val_correct = 0
             val_total = 0
+            all_labels=[]
+            all_pred=[]
             
             with torch.no_grad():
                 for x_val, labels_val in target_val_loader:
@@ -392,18 +425,27 @@ def targetTune(device,classifier, target_train_loader, target_val_loader,embeddi
                     _, predicted = torch.max(y_val, 1)
                     val_correct += (predicted == labels_val).sum().item()
                     val_total += labels_val.size(0)
+
+                    all_labels.extend(labels_val.cpu().numpy())
+                    all_pred.extend(y_val.cpu().numpy())
             
             val_accuracy = val_correct / val_total
+
+            all_pred=np.array(all_pred)
+            AUROC=roc_auc_score(all_labels, all_pred[:,1])
             print(f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}')
             log+=f'Seed: {seed}, Epoch [{e+1}/{epoch}], Train Loss: {losses.avg:.4f}, Val Loss: {val_losses.avg:.4f}, Val Accuracy: {val_accuracy:.4f}\n'
             
             # Save the best model
-            if val_accuracy > best_acc1:
-                best_acc1 = val_accuracy
-                torch.save(classifier.state_dict(), 'best_model_afterTargetTune.pth')
+            # if val_accuracy > best_acc1:
+            #     best_acc1 = val_accuracy
+            #     torch.save(classifier.state_dict(), 'best_model_afterTargetTune.pth')
+            if AUROC > best_auroc:
+                best_auroc = AUROC
+                torch.save(classifier.state_dict(), f'model_path/{freezeCL}{source}2{target}_best_model_{llm}.pth')
 
-    print("Training complete.")
-    print(classifier.load_state_dict(torch.load('best_model_afterTargetTune.pth')))
+    print("Tuning complete.")
+    print(classifier.load_state_dict(torch.load(f'model_path/{freezeCL}{source}2{target}_best_model_{llm}.pth')))
 
     # Print model's state_dict
     print("Model's state_dict:")

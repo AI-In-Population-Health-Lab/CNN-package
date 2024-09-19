@@ -1,4 +1,4 @@
-# CNN_package
+# Transfer-Learning-with-embeddings-from-LLM
 
 All codes are stored in `Clean_version` folder.
 

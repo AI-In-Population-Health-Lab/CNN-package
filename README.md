@@ -1,6 +1,6 @@
 # Transfer-Learning-with-embeddings-from-LLM
 
-All codes are stored in `Clean_version` folder.
+All codes are stored in `Clean_version` folder. Please cite this paper. Gao Y, Bao R, Ji Y, Sun Y, Song C, Ferraro JP, Ye Y. Transfer Learning with Clinical Concept Embeddings from Large Language Models. arXiv preprint arXiv:2409.13893. 2024 Sep 20. https://arxiv.org/pdf/2409.13893 
 
 ## Before Execution:
 
